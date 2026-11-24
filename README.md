@@ -60,3 +60,8 @@ python tests/test_lite.py
 ```
 
 Runs the analyzer on simulated Single I/O traffic without Logic (uses `tests/saleae_stub`).
+
+## License
+
+eSPI Lite is released under the [MIT License](LICENSE). eSPI Pro is a separate commercial product
+and is not covered by this license.

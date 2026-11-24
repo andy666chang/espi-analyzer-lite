@@ -3,7 +3,7 @@
   "apiVersion": "1.0.0",
   "author": "Andy Chang",
   "version": "1.0.0",
-  "description": "Free eSPI analyzer: frames eSPI transactions and decodes Single I/O command opcodes over the Simple Parallel analyzer. Full decoding in eSPI Pro.",
+  "description": "Free eSPI analyzer able to parse eSPI packets (Single I/O command headers). For the Pro version with full decoding, contact andy850821@gmail.com",
   "extensions": {
     "eSPI Lite": {
       "type": "HighLevelAnalyzer",
