@@ -8,7 +8,7 @@ Pro   : full packet decoding is available in eSPI Pro (see PRO_FEATURES / README
 """
 from saleae.analyzers import HighLevelAnalyzer, AnalyzerFrame, ChoicesSetting
 
-UPGRADE_URL = "https://<your-store>/espi-pro"     # TODO: replace with the eSPI Pro store page
+PRO_CONTACT = "contact andy850821@gmail.com"     # how to get eSPI Pro
 
 # eSPI command opcodes (Intel eSPI Base Specification)
 OPCODES = {
@@ -55,6 +55,10 @@ DECODE_CHANNEL_PRO = "Channel deep decode (PC / VW / OOB / Flash)  [eSPI Pro]"
 HINT_ON = "Show eSPI Pro hints"
 HINT_OFF = "Hide eSPI Pro hints"
 
+OPCODE_SET_CONFIGURATION = 0x22
+OPCODE_RESET = 0xFF
+QUAD_WARNING = "may be Quad I/O - decoded as Single, use eSPI Pro"
+
 DEFAULT_GAP_THRESHOLD = 250e-9   # CS# idle detection before the clock period is known
 GAP_FACTOR = 2.2                 # idle gap = CLK interval > GAP_FACTOR x estimated period
 
@@ -78,12 +82,13 @@ class EspiLiteAnalyzer(HighLevelAnalyzer):
         self.last_clk_delta = None
         self.clk_period = None
         self.origin_time = None
+        self.maybe_quad = False      # set after a SET_CONFIGURATION (bus may have left Single I/O)
         self._reset()
         print("eSPI Lite: transaction framing + Single I/O command opcode.")
         if self.pro_selected:
-            print(f"eSPI Lite: '{'; '.join(self.pro_selected)}' requires eSPI Pro -> {UPGRADE_URL}")
+            print(f"eSPI Lite: '{'; '.join(self.pro_selected)}' requires eSPI Pro -> {PRO_CONTACT}")
         elif self.show_hints:
-            print(f"eSPI Lite: full decoding (Quad I/O, responses, all 4 channels) in eSPI Pro -> {UPGRADE_URL}")
+            print(f"eSPI Lite: full decoding (Quad I/O, responses, all 4 channels) in eSPI Pro -> {PRO_CONTACT}")
 
     def _reset(self):
         self.clocks = 0
@@ -100,6 +105,18 @@ class EspiLiteAnalyzer(HighLevelAnalyzer):
             return frame.start_time + self.last_clk_delta
         return frame.end_time
 
+    def _track_io_mode_hint(self):
+        """Lite does not decode SET_CONFIGURATION, so it cannot know whether the Controller switched
+        the bus to Dual/Quad I/O: after one, mark every following command as possibly wrong.
+        An in-band RESET returns the bus to Single I/O."""
+        if self.opcode == OPCODE_SET_CONFIGURATION and not self.maybe_quad:
+            self.maybe_quad = True
+            print("eSPI Lite: SET_CONFIGURATION seen - the bus may now run in Quad/Dual I/O, which Lite "
+                  f"does not decode; the commands that follow may be wrong. Use eSPI Pro -> {PRO_CONTACT}")
+        elif self.opcode == OPCODE_RESET and self.maybe_quad:
+            self.maybe_quad = False
+            print("eSPI Lite: in-band RESET seen - the bus is back to Single I/O.")
+
     def _print(self, t, text):
         if self.origin_time is None:
             self.origin_time = t
@@ -115,15 +132,20 @@ class EspiLiteAnalyzer(HighLevelAnalyzer):
             text = f"eSPI transaction ({self.clocks} clk, {dur_us:.2f} us) - " \
                    f"{self.pro_selected[0].replace('  [eSPI Pro]', '')} requires eSPI Pro"
             out.append(AnalyzerFrame('upgrade', self.txn_start, self.last_clk_end,
-                                     {'summary': text, 'upgrade': UPGRADE_URL}))
+                                     {'summary': text, 'upgrade': PRO_CONTACT}))
             return
 
         if self.clocks >= 8:
             name = OPCODES.get(self.opcode, f"UNKNOWN_0x{self.opcode:02X}")
             summary = f"CMD 0x{self.opcode:02X} {name}"
+            warning = QUAD_WARNING if self.maybe_quad else ""
+            if warning:
+                summary += f" ({warning})"
             out.append(AnalyzerFrame('command', self.txn_start, self.cmd_end,
-                                     {'summary': summary, 'opcode': self.opcode, 'name': name}))
+                                     {'summary': summary, 'opcode': self.opcode, 'name': name,
+                                      'warning': warning}))
             self._print(self.txn_start, f"{summary}  ({self.clocks} clk, {dur_us:.2f} us)")
+            self._track_io_mode_hint()
         if self.clocks > 8:
             hint = PRO_HINTS.get(self.opcode, "") if self.show_hints else ""
             summary = f"{self.clocks - 8} clk" + (f" | {hint}" if hint else "")

@@ -41,6 +41,14 @@ def traffic(bus):
     bus.clk(0); bus.clk(0); bus.gap()                                      # 2-clock glitch frame
 
 
+def traffic_set_config(bus):
+    bus.txn([0x25], [0x08] + STATUS)                                       # GET_STATUS (before)
+    bus.txn([0x22, 0x00, 0x08, 0x00, 0x00, 0x00, 0x08], [0x08] + STATUS)   # SET_CONFIGURATION
+    bus.txn([0x25], [0x08] + STATUS)                                       # after: may be Quad
+    bus.txn([0xFF], [])                                                    # in-band RESET
+    bus.txn([0x25], [0x08] + STATUS)                                       # back to Single
+
+
 def check(cond, msg):
     if not cond:
         raise AssertionError(msg)
@@ -62,6 +70,17 @@ def main():
     check(txns[-1].data['summary'] == "short frame (2 clk)", "frame shorter than a byte")
     check(all(a.end_time <= b.start_time + 1e-15 for a, b in zip(frames, frames[1:])), "frames do not overlap")
     check(out.count("CMD 0x") == 5, "one Terminal line per command")
+
+    check(all(f.data['warning'] == "" for f in cmds), "no Quad warning without SET_CONFIGURATION")
+
+    print("[Quad hint after SET_CONFIGURATION]")
+    frames, out = run(traffic_set_config)
+    cmds = [f for f in frames if f.type == 'command']
+    check([bool(f.data['warning']) for f in cmds] == [False, False, True, True, False],
+          "warning on commands after SET_CONFIGURATION, cleared by RESET")
+    check("may be Quad I/O" in cmds[2].data['summary'], "warning shown in the command bubble")
+    check(out.count("SET_CONFIGURATION seen") == 1 and "back to Single I/O" in out, "Terminal notices")
+    check(cmds[2].data['name'] == "GET_STATUS", "opcode still decoded")
 
     print("[Hints hidden]")
     frames, _ = run(traffic, pro_hints=espi_lite.HINT_OFF)

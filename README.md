@@ -20,6 +20,7 @@ Full packet decoding is available in **eSPI Pro** (see the comparison below).
 | `CMD 0x21 GET_CONFIGURATION` | Command opcode (first byte on IO0, Single I/O) |
 | `90 clk \| Pro: config register fields ...` | Rest of the transaction, plus what eSPI Pro decodes for this command |
 | `short frame (4 clk)` | Transaction shorter than one byte |
+| `CMD 0x42 ... (may be Quad I/O - decoded as Single, use eSPI Pro)` | Shown on every command after a SET_CONFIGURATION: the Controller may have switched the bus to Dual/Quad I/O, which Lite does not decode. Cleared by an in-band RESET (0xFF). |
 
 Transactions are separated by CLK idle gaps (CLK only toggles while CS# is low), so CS# does not
 need to be connected. The Terminal view prints one line per transaction.
@@ -50,7 +51,7 @@ Choosing an `[eSPI Pro]` option shows an upgrade bubble for each transaction ins
 | Configuration register fields (eSPI Rev 1.5) | | ✓ |
 | Split bubble / data-table columns / multi-line Terminal output | | ✓ |
 
-Get eSPI Pro: https://<your-store>/espi-pro
+Get eSPI Pro: contact andy850821@gmail.com
 
 ## Offline test
 

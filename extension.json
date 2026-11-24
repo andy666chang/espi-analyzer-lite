@@ -1,7 +1,7 @@
 {
   "name": "eSPI Lite",
   "apiVersion": "1.0.0",
-  "author": "Embedded Expert",
+  "author": "Andy Chang",
   "version": "1.0.0",
   "description": "Free eSPI analyzer: frames eSPI transactions and decodes Single I/O command opcodes over the Simple Parallel analyzer. Full decoding in eSPI Pro.",
   "extensions": {
